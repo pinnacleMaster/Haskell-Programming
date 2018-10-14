@@ -1,0 +1,8 @@
+Notes:
+
+Function syntax : func_name :: (type var) => _variable (-> otherVariables) -> return type
+
+- Note that the braces were only used to that you can add other variables by adding ->variable->variable and so on.
+- Note that the variables can be simpletons, tuples, arrays, lists etc.
+- the variables in the lists or simpletons, must be of the same type.
+
