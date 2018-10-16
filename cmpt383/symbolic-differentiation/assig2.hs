@@ -31,7 +31,7 @@ simplifyME e = e
 unparseME :: ME -> [Char]
 unparseME (Num n)= show n
 unparseME (Var v) = [v]
-unparseME (Neg n) = ['-']++unparseME n
+unparseME (Neg n) = "-("++(unparseME n)++")"
 unparseME (Power f e) = unparseME(f)++"**"++(show e)
 unparseME (Sum s)
    |   tail s /= []  =  unparseME(head s)++"+"++unparseME(Sum (tail s))
