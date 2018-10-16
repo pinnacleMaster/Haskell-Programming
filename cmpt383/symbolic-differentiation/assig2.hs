@@ -1,4 +1,5 @@
-import Control.Applicative -- <*> Applicative class
+import System.Environment
+import System.IO (stdout,stderr,hPutStr,hPutStrLn)
 data   ME = Num Int 
           | Var Char
           | Group ME
@@ -10,50 +11,57 @@ data   ME = Num Int
 
 
 -- Main Program
+parse_deriv_simp_unparse::Char-> [Char] -> Maybe [Char]
+parse_deriv_simp_unparse v s =
+  case parseME s of
+    Just e -> Just (unparseME (simplifyME (derivative v e)))
+    _ -> Nothing
+
+main = do
+  [[v], expr] <- getArgs
+  case parse_deriv_simp_unparse v expr of
+    Just s -> hPutStrLn stdout s
+    _ -> hPutStrLn stdout "Parse failure"
+
+-- Simplifier
 simplifyME :: ME -> ME
 simplifyME e = e
 
 -- Unparser
-unparseME :: Maybe ME -> [Char]
-unparseME (Just (Num n)) = show n
-unparseME (Just (Var v)) = [v]
-unparseME (Just (Neg n)) = ['-']++unparseME (Just n)
-unparseME (Just (Power f e)) = unparseME(Just f)++"**"++(show e)
-unparseME (Just (Sum s))
-   |   tail s /= []  =  unparseME(Just (head s))++"+"++unparseME(Just (Sum (tail s))) 
-   |   otherwise     =  unparseME(Just (head s))
---unparseME (Just (Product p)) 
+unparseME :: ME -> [Char]
+unparseME (Num n)= show n
+unparseME (Var v) = [v]
+unparseME (Neg n) = ['-']++unparseME n
+unparseME (Power f e) = unparseME(f)++"**"++(show e)
+unparseME (Sum s)
+   |   tail s /= []  =  unparseME(head s)++"+"++unparseME(Sum (tail s))
+   |   otherwise     =  unparseME(head s)
+unparseME (Product s) 
+   |   tail s /= []  =  unparseME(head s)++"*"++unparseME(Product (tail s))
+   |   otherwise     =  unparseME(head s)
 
 
--- Derivative`
-derivative:: Char -> Maybe ME -> Maybe ME
-derivative var (Just (Num n)) = Just(Num 0)
-derivative var (Just (Var v))
-    | v == var   = Just(Num 1)
-    | otherwise  = Just(Num 0)
-derivative var (Just (Neg n)) = Just(Neg neg) where Just neg = derivative var (Just n)  
-derivative var (Just (Sum s)) = Just(Sum der_s) where der_s  = get_sum_der var s  
-derivative var (Just (Product p)) = Just(Sum der_p) where der_p = get_prod_der var p
-derivative var (Just (Power (Var x) n))  
-     | x == var && ((n-1)>1 || (n-1) < 1)  = Just (Product [(Power (Var x) (n-1)), (Num n)])
-     | x == var && ((n-1) == 1)        = Just (Product[(Var x), (Num 2)]) 
-     | otherwise = Just (Num 0) 
---derivative var (Just (Power f n)) = Just(Product der_f) where der_f = get_pow_der var [f]
-
+-- Derivative
+derivative:: Char -> ME -> ME
+derivative var (Num n) = (Num 0)
+derivative var (Var v)
+    | v == var   = (Num 1)
+    | otherwise  = (Num 0)
+derivative var (Neg n) = (Neg neg) where neg = derivative var n 
+derivative var (Sum s) = (Sum der_s) where der_s  = get_sum_der var s  
+derivative var (Product p) = (Sum der_p) where der_p = get_prod_der var p
+derivative var (Power (Var x) n)
+     | x == var && ((n-1)>1 || (n-1) < 1)  = (Product [(Power (Var x) (n-1)), (Num n)])
+     | x == var && ((n-1) == 1)        = (Product[(Var x), (Num 2)]) 
+     | otherwise = (Num 0) 
 
 get_sum_der ::Char -> [ME] -> [ME]
 get_sum_der var []     = []
-get_sum_der var (x:xs) = [x']++get_sum_der var xs where Just(x') = derivative var (Just x)
+get_sum_der var (x:xs) = [x']++get_sum_der var xs where (x') = derivative var x
 
 get_prod_der :: Char -> [ME] -> [ME]
 get_prod_der var []    = []
-get_prod_der var (x:xs) = [Product([x', x])]++get_prod_der var xs where Just(x') = derivative var (Just x) 
-
-{-
-get_pow_der:: Char -> [ME] -> [ME]
-get_pow_der var (Num 1)  = []
-get_pow_der var (Power f n)   = [Power f (n-1), (Num n)]++[derivative var f'] where f' = Power f (n-1) 
--}
+get_prod_der var (x:xs) = [Product([x', x])]++get_prod_der var xs where (x') = derivative var x 
 
 --Parser 
 parseME::[Char] -> Maybe ME
@@ -87,27 +95,21 @@ extendME (e, c:more_elems)
 parseTerm::[Char] -> Maybe (ME, [Char])
 parseTerm s =
     case parseFactor(s) of
-       Just (e, '*':more_elems) -> Just(Product ([e]++extendTerm(more_elems')), restOfTerm(more_elems')) where more_elems' = '*':more_elems
+       Just (e, '*':more_elems) -> Just(Product ([e]++e'), yet_more) where (e', yet_more) = extendTerm(e, '*':more_elems)
        Just (e,[])          -> Just(e, [])
        Just (e, more_elems) -> Just(e, more_elems)
        _                    -> Nothing
+
 -- update this to follow extendME     
-extendTerm::[Char] -> [ME]
-extendTerm [] = []
-extendTerm (c:more_elems)
-    | more_elems /=[] && c=='*'       = [e]++extendTerm(yet_more)
-    | otherwise                       = []
-    where Just(e, yet_more) = parseFactor(more_elems)  
-
-restOfTerm:: [Char] -> [Char]
-restOfTerm s = drop ((firstIndexNotStar s)) s
-
-firstIndexNotStar::[Char] -> Int
-firstIndexNotStar [] = 0
-firstIndexNotStar (c1:[]) = 1
-firstIndexNotStar (c1:more_elems)
-    | c1=='+' || c1=='-'  = 0
-    | otherwise            = 1 + firstIndexNotStar(more_elems)
+extendTerm::(ME, [Char]) -> ([ME], [Char])
+extendTerm (e,[]) = ([], [])
+extendTerm (e, c:more_elems)
+    | more_elems /=[] && c=='*'                = ([e1]++e2, even_yet_more)
+    | yet_more == [] && [e1] /= [] && c=='*'   = ([e1], [])
+    | otherwise                                = ([], c:more_elems)
+    where 
+        Just(e1, yet_more) = parseFactor(more_elems)
+        (e2, even_yet_more)=extendTerm(e1, yet_more)        
 
 
 parseFactor:: [Char] -> Maybe (ME, [Char])
@@ -175,9 +177,4 @@ parseVariable:: [Char] -> Maybe (ME, [Char])
 parseVariable (c:s)
     | c `elem` ['+','-','*'] = Nothing
     | otherwise = Just (Var c, s)
-
-
-
-
-
 
