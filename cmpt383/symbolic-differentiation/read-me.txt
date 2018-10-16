@@ -1,0 +1,10 @@
+This is a symbolic differentiation program in haskell.
+It is not complete.
+
+Missing :
+- Simplification of symbolic arithmetic using inside-out  method
+- another power rule
+
+Could not do:
+- group (data type) because of some error :- irrefutable matching 
+
