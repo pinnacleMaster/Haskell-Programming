@@ -52,7 +52,7 @@ derivative var (Sum s) = (Sum der_s) where der_s  = get_sum_der var s
 derivative var (Product p) = (Sum der_p) where der_p = get_prod_der var p
 derivative var (Power (Var x) n)
      | x == var && ((n-1)>1 || (n-1) < 1)  = (Product [(Power (Var x) (n-1)), (Num n)])
-     | x == var && ((n-1) == 1)        = (Product[(Var x), (Num 2)]) 
+     | x == var && ((n-1) == 1)        = (Product[(Num 2), (Var x)]) 
      | otherwise = (Num 0) 
 
 get_sum_der ::Char -> [ME] -> [ME]
@@ -61,7 +61,13 @@ get_sum_der var (x:xs) = [x']++get_sum_der var xs where (x') = derivative var x
 
 get_prod_der :: Char -> [ME] -> [ME]
 get_prod_der var []    = []
-get_prod_der var (x:xs) = [Product([x', x])]++get_prod_der var xs where (x') = derivative var x 
+get_prod_der var (x:xs) 
+     |  xs /= []        = [Product([x']++xs)]++[Product(xs'++[x])] 
+     |   otherwise       = [Product([x'])]
+      where 
+        x' = derivative var x
+        xs' = get_prod_der var xs
+
 
 --Parser 
 parseME::[Char] -> Maybe ME
