@@ -22,7 +22,7 @@ unparseME (Just (Power f e)) = unparseME(Just f)++"**"++(show e)
 unparseME (Just (Sum s))
    |   tail s /= []  =  unparseME(Just (head s))++"+"++unparseME(Just (Sum (tail s))) 
    |   otherwise     =  unparseME(Just (head s))
-unparseME (Just (Product p)) 
+--unparseME (Just (Product p)) 
 
 
 -- Derivative`
